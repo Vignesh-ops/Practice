@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Humanized Chess AI - Intermediate</title>
+  <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard.min.css">
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      padding: 20px;
+    }
+    #board {
+      width: 400px;
+      margin: auto;
+    }
+    #status {
+      margin-top: 10px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h2>Play vs Humanized AI (1500–1700)</h2>
+  <div id="board"></div>
+  <p id="status"></p>
+
+  <script src="https://unpkg.com/chess.js@1.0.0-beta.1/chess.js"></script>
+  <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard.min.js"></script>
+
+  <script>
+    const game = new Chess();
+
+    const board = Chessboard('board', {
+      draggable: true,
+      position: 'start',
+      onDrop: onDrop,
+    });
+
+    function onDrop(source, target) {
+      const move = game.move({
+        from: source,
+        to: target,
+        promotion: 'q'
+      });
+
+      if (!move) return 'snapback';
+      updateStatus();
+
+      setTimeout(makeAIMove, Math.random() * 1000 + 1000); // 1–2 sec delay
+    }
+
+    function makeAIMove() {
+      if (game.game_over()) return;
+
+      const possibleMoves = game.moves({ verbose: true });
+      const moveScores = [];
+
+      for (let move of possibleMoves) {
+        game.move(move.san);
+        const score = evaluateBoard(game.board()) - (game.turn() === 'w' ? 0.1 : -0.1) * Math.random(); // Add blunder chance
+        game.undo();
+        moveScores.push({ move, score });
+      }
+
+      // Sort by score
+      moveScores.sort((a, b) => b.score - a.score);
+
+      // Pick randomly from top 3
+      const topMoves = moveScores.slice(0, 3);
+      const chosen = topMoves[Math.floor(Math.random() * topMoves.length)];
+
+      game.move(chosen.move.san);
+      board.position(game.fen());
+      updateStatus();
+    }
+
+    function evaluateBoard(board) {
+      const pieceValues = { p: 1, n: 3, b: 3.25, r: 5, q: 9, k: 0 };
+      let score = 0;
+
+      for (let row of board) {
+        for (let piece of row) {
+          if (!piece) continue;
+          let value = pieceValues[piece.type];
+          score += piece.color === 'w' ? value : -value;
+        }
+      }
+
+      // Add mobility factor (small bonus for number of legal moves)
+      const mobility = game.moves().length;
+      score += (game.turn() === 'w' ? 1 : -1) * (mobility * 0.05);
+
+      return score;
+    }
+
+    function updateStatus() {
+      const statusEl = document.getElementById("status");
+
+      if (game.in_checkmate()) {
+        statusEl.textContent = "Game Over: " + (game.turn() === "w" ? "Black" : "White") + " wins by checkmate.";
+      } else if (game.in_draw()) {
+        statusEl.textContent = "Draw!";
+      } else {
+        statusEl.textContent = (game.turn() === "w" ? "White" : "Black") + "'s turn.";
+      }
+    }
+  </script>
+</body>
+</html>
